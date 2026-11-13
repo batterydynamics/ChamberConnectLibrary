@@ -27,3 +27,14 @@ Watlow F4: ```chamberconnectlibrary-test.py WatlowF4 RTU \\.\COM3 19200```
 
 ## Documentation
 See [controllerinterface.md](controllerinterface.md)
+
+## Tests
+The tests need no controller, the physical interfaces are replaced by mocks:
+
+```
+pip install -e . -r requirements-test.txt
+pytest --cov --cov-report=term-missing --cov-report=json
+python tests/check_coverage.py coverage.json
+```
+
+They run on GitHub for every pull request with Python 3.8 and 3.14, see [tests.yml](.github/workflows/tests.yml).
