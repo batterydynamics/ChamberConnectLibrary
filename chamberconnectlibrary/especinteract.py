@@ -119,7 +119,11 @@ class EspecTCP(object):
         self.socket.send(message)
         recv = ''
         while recv[0-len(self.delimeter):] != self.delimeter:
-            recv += self.socket.recv(1).decode('ascii')
+            rbuff = self.socket.recv(1).decode('ascii')
+            if len(rbuff) == 0:
+                # recv() returns an empty result as soon as the chamber closed the connection
+                raise EspecError('The chamber did not respond in time (connection closed)')
+            recv += rbuff
         if recv.startswith('NA:'):
             msg = 'EspecError: command:"%s" generated Error:"%s"' % (
                 message, recv[3:0-len(self.delimeter)]
