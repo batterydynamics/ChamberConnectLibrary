@@ -8,7 +8,7 @@ Partial modbus implimantation for communicating with watlow controllers (holding
 import socket
 import struct
 import time
-import collections
+import collections.abc
 import serial
 
 class ModbusError(Exception):
@@ -102,7 +102,7 @@ class Modbus(object):
         val = self.read_holding(register, count)
         rstring = ""
         for char in val:
-            if char is not 0:
+            if char != 0:
                 rstring = rstring + chr(char)
         return rstring
 
@@ -114,7 +114,7 @@ class Modbus(object):
             register (int): register(s) to write to
             value (int or list(int)): value(s) to write,
         '''
-        packettype = 16 if isinstance(value, collections.Iterable) else 6
+        packettype = 16 if isinstance(value, collections.abc.Iterable) else 6
         packet = self.make_packet(packettype, register, value)
         try:
             rval = self.interact(packet)
@@ -133,7 +133,7 @@ class Modbus(object):
             register (int): register(s) to write to
             value (int or list(int)): value(s) to write,
         '''
-        if isinstance(value, collections.Iterable):
+        if isinstance(value, collections.abc.Iterable):
             value = [0xFFFF & val for val in value]
         else:
             value = 0xFFFF & value #trim to 16bit signed int
@@ -147,8 +147,10 @@ class Modbus(object):
             register (int): first register to write to, 2 float value will be written.
             value (float or list(float)): vlaue(s) to write to
         '''
-        if isinstance(value, collections.Iterable):
-            packval = ''.join([struct.unpack('HH', struct.pack('f', val)) for val in value])
+        if isinstance(value, collections.abc.Iterable):
+            packval = []
+            for val in value:
+                packval.extend(struct.unpack('HH', struct.pack('f', val)))
         else:
             packval = struct.unpack('HH', struct.pack('f', value))
         self.write_holding(register, packval)
@@ -192,8 +194,8 @@ class Modbus(object):
         fcode = struct.unpack(">B", bytes([packet[1]]))[0]
         addr = struct.unpack(">B", bytes([packet[0]]))[0]
         if self.address != addr:
-            shex = ":".join("{:02x}".format(ord(c) for c in spacket))
-            rhex = ":".join("{:02x}".format(ord(c) for c in packet))
+            shex = ":".join("{:02x}".format(c) for c in spacket)
+            rhex = ":".join("{:02x}".format(c) for c in packet)
             raise ModbusError("Address error; Sent=%s, Recieved=%s" % (shex, rhex))
         if fcode > 127:
             ecode = struct.unpack(">B", bytes([packet[2]]))[0]
@@ -201,7 +203,7 @@ class Modbus(object):
             raise ModbusError('Modbus Error: Exception code = %d(%s)' % ttp)
 
         if fcode == 3: #Read holding register(s)
-            cnt = struct.unpack(">B", bytes([packet[2]]))[0] / 2
+            cnt = struct.unpack(">B", bytes([packet[2]]))[0] // 2
             return struct.unpack(">%dH" % cnt, bytes(packet[3:]))
         elif fcode == 6:
             pass #nothing is required
@@ -289,15 +291,16 @@ class ModbusRTU(Modbus):
             body = self.serial.read(1)
         else:
             raise NotImplementedError("Only modbus function codes 3,6,16 are implimented.")
-        rcrc = struct.unpack('>H', self.serial.read(2))[0]
+        rcrc_raw = self.serial.read(2)
+        rcrc = struct.unpack('>H', rcrc_raw)[0]
         ccrc = self.__calc_crc(head+body)
         if self.address != raddress:
-            shex = ":".join(["{:02x}".format(ord(c)) for c in packet+crc])
-            rhex = ":".join(["{:02x}".format(ord(c)) for c in head+body+rcrc])
+            shex = ":".join(["{:02x}".format(c) for c in packet+crc])
+            rhex = ":".join(["{:02x}".format(c) for c in head+body+rcrc_raw])
             raise ModbusError("Address error; Sent=%s, Recieved=%s" % (shex, rhex))
         if rcrc != ccrc:
-            shex = ":".join(["{:02x}".format(ord(c)) for c in packet+crc])
-            rhex = ":".join(["{:02x}".format(ord(c)) for c in head+body+rcrc])
+            shex = ":".join(["{:02x}".format(c) for c in packet+crc])
+            rhex = ":".join(["{:02x}".format(c) for c in head+body+rcrc_raw])
             raise ModbusError("CRC error; Sent=%s, Recieved=%s" % (shex, rhex))
         return head + body
 
