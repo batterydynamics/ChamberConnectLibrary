@@ -55,11 +55,10 @@ class EspecSerial(object):
             EspecError
         '''
         if self.address:
-            message = ('%d,%s%s'%(self.address, message, self.delimeter)).encode('ascii','ignore')
-            self.serial.write('%d,%s%s'%(self.address, message, self.delimeter))
+            message = ('%d,%s%s' % (self.address, message, self.delimeter)).encode('ascii', 'ignore')
         else:
-            message = ('%s%s' % (message, self.delimeter)).encode('ascii','ignore')
-            self.serial.write('%s%s' % (message, self.delimeter))
+            message = ('%s%s' % (message, self.delimeter)).encode('ascii', 'ignore')
+        self.serial.write(message)
         recv = ''
         while recv[0-len(self.delimeter):] != self.delimeter:
             rbuff = self.serial.read(1).decode('ascii')
